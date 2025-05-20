@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 
@@ -12,20 +13,25 @@ module.exports = {
       optimizer: {
         enabled: true,
         runs: 200,
-      }
+      },
     },
   },
   networks: {
-    tbnb: {
+    bscTestnet: {
       url: `https://bsc-testnet-rpc.publicnode.com`,
-      accounts: [
-        "0x1195ee52c8baf699d047a79c29e6fe96e4a158ae3db966ff9bc5f26ba5fae1a9",
-      ],
+      accounts: [process.env.TEST_PRIVATE_KEY],
+      chainId: 97,
+    },
+    bsc: {
+      url: `https://bsc-rpc.publicnode.com`,
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 56,
     },
   },
   etherscan: {
     apiKey: {
-      bscTestnet: "K1DPCVWW2U8PY24HHP6BR5J485YE3IQXJT",
+      bscTestnet: process.env.TESTNET_BSCSCAN_API_KEY,
+      bsc: process.env.BSCSCAN_API_KEY,
     },
   },
   sourcify: {

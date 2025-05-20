@@ -1,12 +1,13 @@
 const { ethers } = require("hardhat");
+require("dotenv").config();
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contract with:", deployer.address);
 
   // Replace with your actual token addresses and main wallet
-  const usdtAddress = "0xde74fcF3FafBb00Ba73395aD734f293edfD04544";
-  const valtAddress = "0xa207C8686c3a4256e6176b25E0AA7dAc468009D1";
+  const usdtAddress = process.env.BINANCE_USDT_ADDRESS;
+  const valtAddress = process.env.VALT_ADDRESS;
 
   const ValutSwap = await ethers.getContractFactory("ValtSwap");
   const swap = await ValutSwap.deploy(usdtAddress, valtAddress);

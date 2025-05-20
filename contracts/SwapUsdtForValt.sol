@@ -41,6 +41,10 @@ contract ValtSwap is Ownable, Pausable, ReentrancyGuard {
         require(usdtAmount > 0, "Amount must be > 0");
         require(usdtAmount <= maxSwapAmount, "Exceeds max swap limit");
         require(isOrganizer[organizer], "Invalid organizer");
+        require(
+            usdt.allowance(msg.sender, address(this)) >= usdtAmount,
+            "USDT allowance too low"
+        );
 
         uint256 valtAmount = (usdtAmount * rate) / 1e18;
 
