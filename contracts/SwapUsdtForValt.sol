@@ -2,15 +2,19 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract ValtSwap is Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     IERC20 public usdt;
     IERC20 public valt;
 
-    uint256 public maxSwapAmount = 100_000 * 1e18;
+    uint256 public totalValtDistributed;
+    uint256 public maxTotalValtCap = 100_000 * 1e8;
+    uint256 public maxSwapAmount = 1_000 * 1e18;
     uint256 public rate = 1e8; // 1:1 default (8 decimal scaling)
 
     mapping(address => bool) public isOrganizer;
@@ -24,6 +28,7 @@ contract ValtSwap is Ownable, Pausable, ReentrancyGuard {
     event UsdtReceived(address indexed from, uint256 amount);
     event EmergencyWithdrawal(address token, uint256 amount);
     event MaxSwapAmountUpdated(uint256 newLimit);
+    event MaxTotalValtCapUpdated(uint256 newLimit);
     event RateUpdated(uint256 newRate);
 
     constructor(address _usdtAddress, address _valtAddress) {
@@ -38,28 +43,35 @@ contract ValtSwap is Ownable, Pausable, ReentrancyGuard {
         uint256 usdtAmount,
         address organizer
     ) external whenNotPaused nonReentrant {
+        // Check USDT amount
         require(usdtAmount > 0, "Amount must be > 0");
         require(usdtAmount <= maxSwapAmount, "Exceeds max swap limit");
+        // Check organizer
+        require(organizer != address(0), "Organizer address cannot be zero");
         require(isOrganizer[organizer], "Invalid organizer");
         require(
             usdt.allowance(msg.sender, address(this)) >= usdtAmount,
-            "USDT allowance too low"
+            "Not enough USDT allowance!"
         );
-
         uint256 valtAmount = (usdtAmount * rate) / 1e18;
-
-        // Transfer USDT from user to selected organizer
-        usdt.transferFrom(msg.sender, organizer, usdtAmount);
-        emit UsdtReceived(msg.sender, usdtAmount);
-
-        // Send VALT to user from this contract
         require(
             valt.balanceOf(address(this)) >= valtAmount,
             "Insufficient VALT"
         );
-        valt.transfer(msg.sender, valtAmount);
+        require(
+            totalValtDistributed + valtAmount <= maxTotalValtCap,
+            "Exceeds total VALT cap"
+        );        
 
+        // Transfer USDT from user to selected organizer
+        usdt.safeTransferFrom(msg.sender, organizer, usdtAmount);
+        emit UsdtReceived(msg.sender, usdtAmount);
+
+        // Send VALT to user from this contract
+        valt.safeTransfer(msg.sender, valtAmount);
         emit TokensSwapped(msg.sender, usdtAmount, valtAmount);
+    
+        totalValtDistributed += valtAmount;
     }
 
     function pause() external onlyOwner {
@@ -108,6 +120,12 @@ contract ValtSwap is Ownable, Pausable, ReentrancyGuard {
         require(_newLimit > 0, "Limit must be > 0");
         maxSwapAmount = _newLimit;
         emit MaxSwapAmountUpdated(_newLimit);
+    }
+
+    function setMaxTotalValtCap(uint256 _newLimit) external onlyOwner {
+        require(_newLimit > 0, "Limit must be > 0");
+        maxTotalValtCap = _newLimit;
+        emit MaxTotalValtCapUpdated(_newLimit);
     }
 
     function setRate(uint256 _newRate) external onlyOwner {
